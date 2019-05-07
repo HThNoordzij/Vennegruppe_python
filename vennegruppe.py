@@ -23,7 +23,7 @@ from openpyxl import load_workbook
 
 # Check for right number of arguments
 if len(sys.argv) != 2:
-    print("Usage: python vennegruppe.py infile")
+    print("Usage: python vennegruppe.py groups.xlsx")
     sys.exit(1)
 
 # Open infile
@@ -151,8 +151,8 @@ for group in groups:
 
 
 # Make a list containing all the names
-print("\nCreating new friend groups")
-randomized_list_of_names = list(archive.keys())
+list_of_names = list(archive.keys())
+randomized_list_of_names = list_of_names.copy()
 
 
 # Function to randomize the order of the names in the list
@@ -179,15 +179,22 @@ else:
         total_nr_of_groups = math.ceil(len(archive) / 4)
 
 
+# Print a summary of the total number of children and the group sizes that will be made
+print("\nTotal number of children: {0}\nTotal number of groups: {1} \n {2} groups with 5 children and,"
+      "\n {3} groups with 4 children".format(length_archive, nr_of_5_kids_per_group + nr_of_4_kids_per_group,
+                                             nr_of_5_kids_per_group, nr_of_4_kids_per_group))
+
+
 # Function to make new groups from the randomized list
 def make_groups():
-    randomize_children()
+    new_friend_groups.clear()
+    random_list_of_names = randomize_children()
     i = 1
 
     # Make the groups with 5 children
     for group_with_five in range(0, (nr_of_5_kids_per_group * 5), 5):
         # Assigns the friend group number and store the names
-        new_friend_groups[i] = randomized_list_of_names[group_with_five:(group_with_five + 5)]
+        new_friend_groups[i] = random_list_of_names[group_with_five:(group_with_five + 5)]
 
         # iterator + 1 for the next group (if any)
         i += 1
@@ -196,53 +203,133 @@ def make_groups():
     for group_with_four in range((nr_of_5_kids_per_group * 5),
                                  (nr_of_4_kids_per_group * 4 + nr_of_5_kids_per_group * 5), 4):
         # Assigns the friend group number and store the names
-        new_friend_groups[i] = randomized_list_of_names[group_with_four:(group_with_four + 4)]
+        new_friend_groups[i] = random_list_of_names[group_with_four:(group_with_four + 4)]
 
         # iterator + 1 for the next group (if any)    
         i += 1
 
+    return new_friend_groups
+
 
 # Function to make a list of all the genders in one group
 def list_of_genders():
-    make_groups()
+    genders_per_group.clear()
+    new_friend_groups_genders = make_groups()
     tmp_genders = list()  # empty list to hold the genders of the children in one group
     j = 0
 
-    for group_number in new_friend_groups:
-        for name_in_group in new_friend_groups[group_number]:
-            tmp_genders.append(archive[name_in_group]["gender"])
+    for group_genders in new_friend_groups_genders:
+        for name_genders in new_friend_groups_genders[group_genders]:
+            tmp_genders.append(archive[name_genders]["gender"])
 
         genders_per_group[j] = tmp_genders
         tmp_genders = list()
         j += 1
 
-    return genders_per_group
+    return genders_per_group, new_friend_groups_genders
 
 
 # Function to score the new friend group
-#    5 points for same gender
-#   10 points for having been in same group before
+#   10 points for only one girl or boy in a group
+#   50 point when group consists of only girls or boys
+#   100 points for having been in same group before
 def scoring():
-    k = 1
-    for group_scoring in new_friend_groups:
+    score = 0
+    genders_per_group_scoring, new_friend_groups_genders_scoring = list_of_genders()
+
+    # Iterate through the genders of the newly made groups
+    for group_scoring in genders_per_group_scoring:
+        girl = 0
+        boy = 0
+
+        # Count the number of girls (jente) and boys (gutt) in each group
+        for gender_scoring in genders_per_group_scoring[group_scoring]:
+            if gender_scoring == "jente":
+                girl += 1
+            else:
+                boy += 1
+
+        # Score the group if they have only one or no girls/boys
+        if girl or boy <= 1:
+            if girl or boy == 1:
+                score += 10
+            else:
+                score += 50
+
+    # Iterate through the names of the newly made groups
+    for group_score in new_friend_groups_genders_scoring:
+        for name_score in new_friend_groups_genders_scoring[group_score]:
+            x = 0
+            for archive_name in archive[name_score]["has_been_in_group_with"]:
+                while len(new_friend_groups_genders_scoring[group_score]) > x:
+                    if archive_name == new_friend_groups_genders_scoring[group_score][x]:
+                        score += 100
+                    x += 1
+
+    return score, new_friend_groups_genders_scoring
+
+
+# Initializing variable to score and store each newly made friend group
+friend_group_options = {}
+
+
+def group_options(how_many_options):
+    y = how_many_options
+    friend_group_options.clear()
+
+    for option in range(y):
+        group_score, new_friend_groups_option = scoring()
+        tmp = "group " + str(option + 1)
+        friend_group_options[tmp] = {}
+        for key, value in new_friend_groups_option.items():
+            friend_group_options[tmp][key] = value
+        friend_group_options[tmp]['score'] = group_score
+
+    return friend_group_options
+
+
+def best_scoring_random_made_group():
+    # print("\nThe more random groups this program is allowed to create, "
+    #       "the more likely is it that a group with at least one girl or boy"
+    #       "and is the least possible overlap in children who have been in a group together before"
+    #       "is created."
+    #       "\nHowever, too many groups and you'll have to wait a long time for your result"
+    #       "Please enter a number of groups the program can create to get the best result")
+
+    user_input = 10000  # Can be changed to user imput with commend above and : int(input("\nHow many random groups: "))
+
+    # Inform the user that the new groups are being made
+    print("\nCreating new friend groups")
+
+    friend_group_options_final = group_options(user_input)
+
+    # Find the lowest scoring group
+    lowest_scoring_group_number = ''
+    lowest_score = float('inf')
+    for keys in friend_group_options_final.keys():
+        if friend_group_options_final[keys]["score"] < lowest_score:
+            lowest_score = friend_group_options_final[keys]["score"]
+            lowest_scoring_group_number = keys
+
+    return friend_group_options_final[lowest_scoring_group_number]
+
+
+final_group = best_scoring_random_made_group()
+# Print the new friend group to the screen
+for k, v in final_group.items():
+    if k == "score":
+        print("\nWith a total score of:", v)  # Will be deleted at some point and do nothing instead
+    else:
         print("\nVennegruppe", k, end=":  ")
-        k += 1
-        for child_scoring in new_friend_groups[group_scoring]:
-            print(child_scoring, end=", ")
+        for kid in v:
+            print(kid, end=", ")
 
 
-list_of_genders()
-print("Total number of children: {0}\nTotal number of groups: {1} \n {2} groups with 5 children and,"
-      "\n {3} groups with 4 children".format(length_archive, nr_of_5_kids_per_group + nr_of_4_kids_per_group,
-                                             nr_of_5_kids_per_group, nr_of_4_kids_per_group))
+# NEXT  CHANGING THE EXCEL SHEET
+# ARKIV SHEET NEEDS TO BE UPDATED
+# VENNEGRUPPE SHEET NEEDS TO BE UPDATED TO THE NEW GROUPS
+# THIS NEW SHEET CAN THEN DIRECTLY BE USED AS INPUT WHEN NEW GROUPS ARE MADE 6 MONTHS LATER
 
-# Print the new friends group to the screen
-iterator = 1
-for group in new_friend_groups:
-    print("\nVennegruppe", iterator, end=":  ")
-    iterator += 1
-    for child in new_friend_groups[group]:
-        print(child, end=", ")
 
 # Data can be assigned directly to cells
 # x = random.randint(1, 10)
@@ -251,9 +338,11 @@ for group in new_friend_groups:
 # Save the file
 # wb.save("sample.xlsx")
 
-# Empty dictionaries
-groups = {}
-archive = {}
+# Empty dictionaries MORE TO BE ADDED HERE! ALL NAMES SHOULD BE REMOVED FROM MEMORY (if python doesn't do that
+# automatically
+groups.clear()
+archive.clear()
+final_group.clear()
 
 # Success
 sys.exit(0)
