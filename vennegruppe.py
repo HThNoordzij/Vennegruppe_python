@@ -88,34 +88,34 @@ archive = {}
 child = 0
 child_name = ""
 has_been_in_group_with = list()
-iterator = 3
+iterator = 3  # First column of the many "has_been_in_group_with" columns
 
 # grab the name and gender of all the children (Kjønn, Navn)
 print("Storing all the previous friend groups")
 while True:
     child += 1
 
-    # breaks out of the while loop when the next cell is empty
-    if not sheet2_infile.cell(row=(child + 1), column=1).value:
+    # breaks out of the while loop when the next cell is empty (There are no more children)
+    if not sheet2_infile.cell(row=(child + 5), column=1).value:
         break
 
     # grabs the child's name and stores it in a variable
-    child_name = sheet2_infile.cell(row=(child + 1), column=1).value
+    child_name = sheet2_infile.cell(row=(child + 5), column=1).value
 
     # grab all the names of "has_been_in_group_with" (Har vært i gruppen med)
     while True:
 
-        # breaks out of the while loop when the next cell is empty
-        if not sheet2_infile.cell(row=(child + 1), column=iterator).value:
+        # breaks out of the while loop when the next cell is empty (There are no more names in "has_been_in_group_with")
+        if not sheet2_infile.cell(row=(child + 5), column=iterator).value:
             iterator = 3
             break
 
         # Grabs and stores the child names and stores in a list
-        has_been_in_group_with.append(sheet2_infile.cell(row=(child + 1), column=iterator).value)
+        has_been_in_group_with.append(sheet2_infile.cell(row=(child + 5), column=iterator).value)
         iterator += 1
 
     # After the list "has_been_in_group_with" is done, this list is added to the archive the main child
-    archive[child_name] = {"gender": sheet2_infile.cell(row=(child + 1), column=2).value,
+    archive[child_name] = {"gender": sheet2_infile.cell(row=(child + 5), column=2).value,
                            "has_been_in_group_with": has_been_in_group_with}
 
     # List is emptied for the next main child
@@ -296,7 +296,7 @@ def best_scoring_random_made_group():
     #       "\nHowever, too many groups and you'll have to wait a long time for your result"
     #       "Please enter a number of groups the program can create to get the best result")
 
-    user_input = 10000  # Can be changed to user imput with commend above and : int(input("\nHow many random groups: "))
+    user_input = 10000  # Can be changed to user input with commend above and : int(input("\nHow many random groups: "))
 
     # Inform the user that the new groups are being made
     print("\nCreating new friend groups")
@@ -311,38 +311,89 @@ def best_scoring_random_made_group():
             lowest_score = friend_group_options_final[keys]["score"]
             lowest_scoring_group_number = keys
 
+    # Print the new friend group to the screen
+    for k, v in friend_group_options_final[lowest_scoring_group_number].items():
+        if k == "score":
+            print("\nWith a total score of:", v)  # Will be deleted at some point and do nothing instead
+        else:
+            print("\nVennegruppe", k, end=":  ")
+            for kid_name in v:
+                print(kid_name, end=", ")
+
     return friend_group_options_final[lowest_scoring_group_number]
 
 
-final_group = best_scoring_random_made_group()
-# Print the new friend group to the screen
-for k, v in final_group.items():
-    if k == "score":
-        print("\nWith a total score of:", v)  # Will be deleted at some point and do nothing instead
+# Function to store the groups in a excel file
+def write_groups_in_excel(f_group):
+    final_group_to_excel = f_group
+
+    # Open outfile
+    print("\nOpening outfile")
+    outfile = "test.xlsx"
+    wb_outfile = load_workbook(filename=outfile)
+
+    print("file opened")
+
+    # Check if the provided set-up excel file is used by checking sheet names
+    sheet1_out, sheet2_out = wb_outfile.sheetnames
+    if not sheet1_out == 'Vennegruppe' or not sheet2_out == 'Arkiv':
+        print("Error: The outfile could not be opened")
+        sys.exit(1)
+
+    # grab the groups worksheet (Vennegruppe)
+    sheet1_outfile = wb_outfile["Vennegruppe"]
+
+    # write the latest friend groups (Vennegruppe)
+    print("Storing the new friend groups")
+
+    for key_number, final_names in final_group_to_excel.items():
+
+        # The score key-value is not used, and will be ignored
+        if not key_number == "score":
+
+            # Print the vennegruppe numbers in excel
+            sheet1_outfile.cell(row=1, column=key_number).value = "Vennegruppe " + str(key_number)
+
+            # Iterate through the rows in excel and the names in each group for printing in excel
+            row = 2
+            for final_name in final_names:
+                sheet1_outfile.cell(row=row, column=key_number).value = final_name
+                row += 1
+
+                # Delete the fifth name is this groups contains only four children
+                # (in case there is a name there from before)
+                if len(final_names) <= 4:
+                    sheet1_outfile.cell(row=6, column=key_number).value = None
+
+    # TODO store the new archive
+
+    # Safe the outfile
+    wb_outfile.save("test.xlsx")
+
+    print("File saved")
+
+
+# Function to ask the user if the created friend groups are accepted
+def accept():
+    accept_group = ''
+    final_group = best_scoring_random_made_group()
+
+    while True:
+        if accept_group.lower() in ('y', 'yes', 'n', 'no'):
+            break
+        else:
+            accept_group = input("\nDo you accept these vennegruppe? y/n ")
+
+    if accept_group.lower() in ('n', 'no'):
+        accept()
+    elif accept_group.lower() in ('y', 'yes'):
+        write_groups_in_excel(final_group)
     else:
-        print("\nVennegruppe", k, end=":  ")
-        for kid in v:
-            print(kid, end=", ")
+        print("Something went wrong with saving the groups, please try again")
+        sys.exit(1)
 
 
-# NEXT  CHANGING THE EXCEL SHEET
-# ARKIV SHEET NEEDS TO BE UPDATED
-# VENNEGRUPPE SHEET NEEDS TO BE UPDATED TO THE NEW GROUPS
-# THIS NEW SHEET CAN THEN DIRECTLY BE USED AS INPUT WHEN NEW GROUPS ARE MADE 6 MONTHS LATER
-
-
-# Data can be assigned directly to cells
-# x = random.randint(1, 10)
-# ws['A1'] = x
-
-# Save the file
-# wb.save("sample.xlsx")
-
-# Empty dictionaries MORE TO BE ADDED HERE! ALL NAMES SHOULD BE REMOVED FROM MEMORY (if python doesn't do that
-# automatically
-groups.clear()
-archive.clear()
-final_group.clear()
+accept()
 
 # Success
 sys.exit(0)
