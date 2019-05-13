@@ -32,7 +32,7 @@ infile = sys.argv[1]
 wb_infile = load_workbook(filename=infile, read_only=True)
 
 # Check if the provided set-up excel file is used by checking sheet names
-sheet1, sheet2, sheet_hidden = wb_infile.sheetnames
+sheet1, sheet2 = wb_infile.sheetnames
 if not sheet1 == 'Vennegruppe' or not sheet2 == 'Arkiv':
     print("Please use the provided example file")
     sys.exit(1)
@@ -120,6 +120,9 @@ while True:
 
     # List is emptied for the next main child
     has_been_in_group_with = list()
+
+# Close the excel file
+wb_infile.close()
 
 #################################################################
 #                                                               #
@@ -329,7 +332,7 @@ def write_groups_in_excel(f_group):
 
     # Open outfile
     print("\nOpening outfile")
-    outfile = "test.xlsx"
+    outfile = "groups.xlsx"
     wb_outfile = load_workbook(filename=outfile)
 
     print("file opened")
@@ -365,12 +368,36 @@ def write_groups_in_excel(f_group):
                 if len(final_names) <= 4:
                     sheet1_outfile.cell(row=6, column=key_number).value = None
 
-    # TODO store the new archive
+    # Change to archive sheet (Arkiv)
+    sheet2_outfile = wb_outfile["Arkiv"]
+    print("Updating the archive")
+
+    row_archive = 6
+
+    for archive_name, archive_list in archive.items():
+        column_archive = 3
+
+        # Write the name of the child in the first column
+        sheet2_outfile.cell(row=row_archive, column=1).value = archive_name
+        row_archive += 1
+
+        # Read the genders, and list of has_been_in_group_with
+        for archive_key, archive_value in archive_list.items():
+
+            # Write gender in the excel file
+            if archive_key == "gender":
+                sheet2_outfile.cell(row=row_archive-1, column=2).value = archive_value
+
+            # Write all the names from has_been_in_group_with in the excel file
+            else:
+                for archive_has_been_in_group_with in archive_value:
+                    sheet2_outfile.cell(row=row_archive-1, column=column_archive).value = archive_has_been_in_group_with
+                    column_archive += 1
 
     # Safe the outfile
-    wb_outfile.save("test.xlsx")
+    wb_outfile.save("groups.xlsx")
 
-    print("File saved")
+    print("\nFile saved")
 
 
 # Function to ask the user if the created friend groups are accepted
