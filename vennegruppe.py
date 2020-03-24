@@ -332,7 +332,7 @@ def write_groups_in_excel(f_group):
 
     # Open outfile
     print("\nOpening outfile")
-    outfile = "groups.xlsx"
+    outfile = "new_groups.xlsx"
     wb_outfile = load_workbook(filename=outfile)
 
     print("file opened")
